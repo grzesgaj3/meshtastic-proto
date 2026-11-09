@@ -1,8 +1,36 @@
 #include <Arduino.h>
 #include <Meshtastic.h>
+#include <cstdarg>
+#include <cstdio>
 #include <esp_sleep.h>
 
 #include "sensor_node.h"
+
+// Core/SDK logs are not used; stubbing the printf family drops newlib
+// formatting (~45 KB). Use Serial.print or manual formatting instead.
+extern "C" {
+int __wrap_printf(const char *, ...) { return 0; }
+int __wrap_fprintf(FILE *, const char *, ...) { return 0; }
+int __wrap_sprintf(char *buffer, const char *, ...) {
+  if (buffer != nullptr) {
+    buffer[0] = '\0';
+  }
+  return 0;
+}
+int __wrap_snprintf(char *buffer, size_t size, const char *, ...) {
+  if (buffer != nullptr && size > 0) {
+    buffer[0] = '\0';
+  }
+  return 0;
+}
+int __wrap_vprintf(const char *, va_list) { return 0; }
+int __wrap_vsnprintf(char *buffer, size_t size, const char *, va_list) {
+  if (buffer != nullptr && size > 0) {
+    buffer[0] = '\0';
+  }
+  return 0;
+}
+}
 
 namespace {
 constexpr uint8_t WAKE_PIN = 27;
