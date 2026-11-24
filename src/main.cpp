@@ -4,10 +4,10 @@
 #include <Meshtastic.h>
 #include <esp_sleep.h>
 
-constexpr uint8_t SERIAL_RX_PIN = 16;
-constexpr uint8_t SERIAL_TX_PIN = 17;
-constexpr uint32_t SERIAL_BAUD = 115200;
-constexpr uint8_t SENSOR_PIN = 33;
+constexpr uint8_t SERIAL_RX_PIN = 32;
+constexpr uint8_t SERIAL_TX_PIN = 33;
+constexpr uint32_t SERIAL_BAUD = 9600;
+constexpr uint8_t SENSOR_PIN = 14;
 constexpr uint8_t MESSAGE_WAKE_PIN = 27;
 constexpr uint8_t BUILTIN_LED_PIN = 2;
 
@@ -137,16 +137,59 @@ void text_message_callback(uint32_t from, uint32_t to, uint8_t channel, const ch
   (void)to;
   (void)channel;
 
+  Serial.print("ODEBRANO WIADOMOSC RAW: ");
+
   if (text == nullptr) {
+    Serial.println("<NULL>");
     return;
   }
 
   strncpy(received_message, text, MESSAGE_BUFFER_SIZE - 1);
   received_message[MESSAGE_BUFFER_SIZE - 1] = '\0';
 
-  Serial.print("Received message: ");
   Serial.println(received_message);
+  Serial.print("DLUGOSC WIADOMOSCI: ");
+  Serial.println(strlen(received_message));
   handle_received_message(received_message);
+}
+
+void portnum_callback(uint32_t from, uint32_t to, uint8_t channel,
+                     meshtastic_PortNum port,
+                     meshtastic_Data_payload_t *payload) {
+  (void)to;
+  (void)channel;
+
+  Serial.print("ODEBRANO INNY PAKIET; FROM=0x");
+  Serial.print(from, HEX);
+  Serial.print("; PORT=");
+  Serial.print(static_cast<int>(port));
+
+  if (payload != nullptr) {
+    Serial.print("; SIZE=");
+    Serial.print(payload->size);
+    Serial.print("; HEX=");
+    for (size_t i = 0; i < payload->size && i < 64; i++) {
+      if (payload->bytes[i] < 0x10) {
+        Serial.print('0');
+      }
+      Serial.print(payload->bytes[i], HEX);
+      Serial.print(' ');
+    }
+  }
+
+  Serial.println();
+}
+
+void encrypted_callback(uint32_t from, uint32_t to, uint8_t channel,
+                       meshtastic_MeshPacket_public_key_t pubKey,
+                       meshtastic_MeshPacket_encrypted_t *payload) {
+  (void)to;
+  (void)channel;
+  (void)pubKey;
+  (void)payload;
+
+  Serial.print("ODEBRANO ZASZYFROWANY PAKIET; FROM=0x");
+  Serial.println(from, HEX);
 }
 
 void enter_deep_sleep() {
@@ -282,6 +325,8 @@ void setup() {
   mt_serial_init(SERIAL_RX_PIN, SERIAL_TX_PIN, SERIAL_BAUD);
   mt_request_node_report(connected_callback);
   set_text_message_callback(text_message_callback);
+  set_portnum_callback(portnum_callback);
+  set_encrypted_callback(encrypted_callback);
 
   Serial.println("Module initialized.");
 
